@@ -8,8 +8,8 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --navy:#1B3A6B;--navy2:#142d54;--navy3:#0f2240;
-  --blue:#2563EB;--blue2:#1d4ed8;
+  --navy:#C8102E;--navy2:#a50d25;--navy3:#7d0a1c;
+  --blue:#C8102E;--blue2:#a50d25;
   --green:#16a34a;--green-bg:#f0fdf4;--green-border:#bbf7d0;
   --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;
   --amber:#d97706;--amber-bg:#fffbeb;--amber-border:#fde68a;
@@ -156,13 +156,25 @@ tr:hover td{background:var(--gray)}
 .footer-bar{background:var(--navy);color:rgba(255,255,255,.45);padding:8px 20px;font-size:11px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px}
 
 @media(max-width:700px){
-  .page{padding:12px}
-  .metrics{grid-template-columns:repeat(2,1fr)}
+  .page{padding:10px}
+  .metrics{grid-template-columns:repeat(2,1fr);gap:8px}
+  .metric-card{padding:12px 14px}
+  .metric-val{font-size:22px}
   .header-nav{display:none}
   .mobile-nav{display:flex}
-  .brand-name{font-size:14px}
-  .btn{font-size:12px;padding:8px 12px}
-  .clock-time{font-size:15px}
+  .brand-name{font-size:13px}
+  .btn{font-size:12px;padding:7px 10px}
+  .clock-time{font-size:14px}
+  .section-head{padding:10px 12px;flex-wrap:wrap;gap:6px}
+  .section-body{padding:12px}
+  .form-grid{grid-template-columns:1fr}
+  th,td{padding:8px 8px;font-size:12px}
+  .placa-badge{font-size:11px;padding:1px 6px}
+  .num-badge{font-size:11px;padding:1px 5px}
+}
+@media(max-width:400px){
+  .metrics{grid-template-columns:1fr 1fr}
+  .clock-date{display:none}
 }
 </style>
 </head>
@@ -226,30 +238,35 @@ tr:hover td{background:var(--gray)}
   <div class="metrics" id="metricsContainer">
     <div class="metric-card"><div class="metric-label">Cargando...</div><div class="metric-val" style="color:var(--gray3)">—</div></div>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
-    <div class="section">
-      <div class="section-head">
-        <div class="section-title">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Vehículos en planta
-        </div>
-        <span id="dashActiveBadge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500">0</span>
-      </div>
-      <div id="dashActivosTable" style="overflow-x:auto"></div>
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+    <div style="position:relative;flex:1;min-width:200px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="dashSearch" class="form-input" style="padding-left:32px" placeholder="Buscar por patente..." oninput="renderDashboard()">
     </div>
-    <div class="section">
-      <div class="section-head">
-        <div class="section-title">
-          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          Últimos movimientos
-        </div>
-        <button class="btn btn-outline btn-sm" onclick="sincronizar()">
-          <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          Sincronizar
-        </button>
+    <button class="btn btn-outline btn-sm" onclick="sincronizar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Sincronizar
+    </button>
+  </div>
+  <div class="section" style="margin-bottom:16px">
+    <div class="section-head">
+      <div class="section-title">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Vehículos en planta ahora
       </div>
-      <div id="dashMovimientos" style="overflow-x:auto"></div>
+      <span id="dashActiveBadge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500">0</span>
     </div>
+    <div id="dashActivosTable" style="overflow-x:auto"></div>
+  </div>
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Últimos movimientos
+      </div>
+      <span id="dashMovBadge" style="background:var(--gray2);color:var(--text2);border:1px solid var(--gray3);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500">0</span>
+    </div>
+    <div id="dashMovimientos" style="overflow-x:auto"></div>
   </div>
 </div>
 
@@ -586,7 +603,9 @@ function renderPage(p){ if(p==='entrada') setTimeout(buildNumSelect,80);
 
 // ---- DASHBOARD ----
 function renderDashboard(){
+  const q=(document.getElementById('dashSearch')?.value||'').toUpperCase().trim();
   const activos=records.filter(r=>!hasSalida(r));
+  const activosFilt=q?activos.filter(r=>r.placa.includes(q)||r.chofer.toUpperCase().includes(q)):activos;
   const hoy=new Date(); hoy.setHours(0,0,0,0);
   const hoyRecs=records.filter(r=>{
     const ts=r.entrada||(r.fechaIngreso?parseLocalDate(r.fechaIngreso,r.horaIngreso):null);
@@ -599,37 +618,43 @@ function renderDashboard(){
     <div class="metric-card amber"><div class="metric-label">Ingresos hoy</div><div class="metric-val">${hoyRecs.length}</div><div class="metric-note">${new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'short'})}</div></div>
     <div class="metric-card"><div class="metric-label">Con salida registrada</div><div class="metric-val">${records.filter(r=>hasSalida(r)).length}</div><div class="metric-note">completados</div></div>`;
 
-  document.getElementById('dashActiveBadge').textContent=activos.length+' vehículo'+(activos.length!==1?'s':'');
+  // Últimos movimientos (arriba)
+  const ultimos=records.slice().sort((a,b)=>(b.entrada||0)-(a.entrada||0)).slice(0,10);
+  document.getElementById('dashMovBadge').textContent=ultimos.length+' registros';
+  document.getElementById('dashActiveBadge').textContent=activosFilt.length+' vehículo'+(activosFilt.length!==1?'s':'');
 
-  if(activos.length===0){
-    document.getElementById('dashActivosTable').innerHTML='<div style="text-align:center;padding:28px;color:var(--text3);font-size:13px">Sin vehículos en planta</div>';
-  } else {
-    document.getElementById('dashActivosTable').innerHTML=`<table><thead><tr><th>N°</th><th>Patente</th><th>Chofer</th><th>Empresa</th><th>Ingreso</th><th>Tiempo</th><th>Acción</th></tr></thead><tbody>
-    ${activos.slice(0,8).map(r=>`<tr>
-      <td><span class="num-badge">${String(r.num||'?').padStart(4,'0')}</span></td>
-      <td><span class="placa-badge">${r.placa}</span></td>
-      <td>${r.chofer}</td>
-      <td>${r.empresa||'—'}</td>
-      <td class="mono">${fmtEntrada(r)} ${fmtHoraE(r)}</td>
-      <td>${r.entrada?`<span class="badge en-planta"><span class="badge-dot"></span>${elapsed(r.entrada)}</span>`:'<span class="badge en-planta"><span class="badge-dot"></span>En planta</span>'}</td>
-      <td><button class="btn btn-red btn-sm" onclick="openModalSalida('${r.id}')">Registrar Salida</button></td>
-    </tr>`).join('')}
-    </tbody></table>`;
-  }
-
-  const ultimos=records.slice().sort((a,b)=>(b.entrada||0)-(a.entrada||0)).slice(0,8);
   if(ultimos.length===0){
     document.getElementById('dashMovimientos').innerHTML='<div style="text-align:center;padding:28px;color:var(--text3);font-size:13px">Sin movimientos</div>';
   } else {
-    document.getElementById('dashMovimientos').innerHTML=`<table><thead><tr><th>N°</th><th>Patente</th><th>Chofer</th><th>Fecha</th><th>Estado</th></tr></thead><tbody>
+    document.getElementById('dashMovimientos').innerHTML=`<div style="overflow-x:auto"><table style="min-width:500px"><thead><tr><th>N°</th><th>Patente</th><th>Chofer</th><th>Empresa</th><th>Ingreso</th><th>Hora</th><th>Estado</th></tr></thead><tbody>
     ${ultimos.map(r=>`<tr>
-      <td><span class="num-badge">${String(r.num||'?').padStart(4,'0')}</span></td>
+      <td><span class="num-badge">${String(r.num||'?').padStart(2,'0')}</span></td>
       <td><span class="placa-badge">${r.placa}</span></td>
       <td>${r.chofer}</td>
-      <td class="mono">${fmtEntrada(r)} ${fmtHoraE(r)}</td>
+      <td>${r.empresa||'—'}</td>
+      <td class="mono">${fmtEntrada(r)}</td>
+      <td class="mono">${fmtHoraE(r)}</td>
       <td>${hasSalida(r)?'<span class="badge salio"><span class="badge-dot"></span>Salió</span>':'<span class="badge en-planta"><span class="badge-dot"></span>En planta</span>'}</td>
     </tr>`).join('')}
-    </tbody></table>`;
+    </tbody></table></div>`;
+  }
+
+  // Vehículos en planta (abajo)
+  if(activosFilt.length===0){
+    document.getElementById('dashActivosTable').innerHTML='<div style="text-align:center;padding:28px;color:var(--text3);font-size:13px">'+(q?'Sin resultados para "'+q+'"':'Sin vehículos en planta')+'</div>';
+  } else {
+    document.getElementById('dashActivosTable').innerHTML=`<div style="overflow-x:auto"><table style="min-width:500px"><thead><tr><th>N°</th><th>Patente</th><th>Chofer</th><th>Empresa</th><th>Ingreso</th><th>Hora</th><th>Tiempo</th><th>Acción</th></tr></thead><tbody>
+    ${activosFilt.map(r=>`<tr>
+      <td><span class="num-badge">${String(r.num||'?').padStart(2,'0')}</span></td>
+      <td><span class="placa-badge">${r.placa}</span></td>
+      <td>${r.chofer}</td>
+      <td>${r.empresa||'—'}</td>
+      <td class="mono">${fmtEntrada(r)}</td>
+      <td class="mono">${fmtHoraE(r)}</td>
+      <td>${r.entrada?`<span class="badge en-planta"><span class="badge-dot"></span>${elapsed(r.entrada)}</span>`:'<span class="badge en-planta"><span class="badge-dot"></span>En planta</span>'}</td>
+      <td><button class="btn btn-red btn-sm" onclick="openModalSalida('${r.id}')">Registrar Salida</button></td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
   }
   document.getElementById('footerInfo').textContent=records.length+' registros · '+activos.length+' en planta';
 }
@@ -889,14 +914,27 @@ function cleanTimeStr(s){
 function cleanDate(s){
   if(!s)return '';
   s=String(s).trim();
-  if(s.includes('T')&&s.includes('Z')){const d=new Date(s);if(!isNaN(d))return padZ(d.getDate())+'/'+padZ(d.getMonth()+1)+'/'+d.getFullYear();}
+  // ISO format from Sheets: 2026-04-28T04:00:00.000Z
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){
+    const d=new Date(s);
+    if(!isNaN(d)){
+      // Use local Chile offset (+0 stored, display as-is date part)
+      const parts=s.substring(0,10).split('-');
+      return parts[2]+'/'+parts[1]+'/'+parts[0];
+    }
+  }
   if(s.startsWith('1899')||s.startsWith('1900'))return '';
   return s;
 }
 function cleanTime(s){
   if(!s)return '';
   s=String(s).trim();
-  if(s.includes('T')&&s.includes('Z')){const d=new Date(s);if(!isNaN(d))return padZ(d.getHours())+':'+padZ(d.getMinutes());}
+  // ISO time from Sheets: 1899-12-30T20:09:45.000Z → extract HH:MM from Z time
+  if(/^\d{4}-\d{2}-\d{2}T/.test(s)){
+    const tPart=s.split('T')[1]||'';
+    const hm=tPart.substring(0,5);
+    if(hm.includes(':'))return hm;
+  }
   if(s.startsWith('1899')||s.startsWith('1900'))return '';
   return s;
 }
