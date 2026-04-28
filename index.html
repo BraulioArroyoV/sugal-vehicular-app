@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Vehicular — SUGAL</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1B3A6B;--navy2:#142d54;--navy3:#0f2240;
+  --blue:#2563EB;--blue2:#1d4ed8;
+  --green:#16a34a;--green-bg:#f0fdf4;--green-border:#bbf7d0;
+  --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;
+  --amber:#d97706;--amber-bg:#fffbeb;--amber-border:#fde68a;
+  --gray:#f8fafc;--gray2:#f1f5f9;--gray3:#e2e8f0;--gray4:#94a3b8;
+  --text:#1e293b;--text2:#475569;--text3:#94a3b8;
+  --radius:6px;--radius2:10px;
+  font-family:'Roboto',sans-serif;font-size:14px;
+}
+body{background:#f0f4f8;color:var(--text);min-height:100vh}
+
+/* HEADER */
+.header{background:var(--navy);padding:0 20px;display:flex;align-items:stretch;justify-content:space-between;min-height:60px}
+.header-left{display:flex;align-items:center;gap:14px}
+.logo-box{background:rgba(255,255,255,0.15);border-radius:var(--radius);padding:7px 10px;display:flex;align-items:center;justify-content:center}
+.logo-box svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.brand{color:#fff}
+.brand-name{font-size:16px;font-weight:700;letter-spacing:.3px}
+.brand-sub{font-size:11px;color:rgba(255,255,255,.55);margin-top:1px;display:flex;align-items:center;gap:5px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block}
+.sync-dot.syncing{background:#fbbf24;animation:pulse 1s infinite}
+.sync-dot.error{background:#f87171;animation:none}
+.header-right{display:flex;align-items:center;gap:16px}
+.clock-box{text-align:right;color:#fff}
+.clock-time{font-family:'Roboto Mono',monospace;font-size:18px;font-weight:500}
+.clock-date{font-size:11px;color:rgba(255,255,255,.55);margin-top:1px}
+.header-nav{display:flex;align-items:stretch;margin-left:10px}
+.nav-btn{padding:0 16px;color:rgba(255,255,255,.7);font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;border-bottom:3px solid transparent;transition:all .2s;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.nav-btn:hover{color:#fff;background:rgba(255,255,255,.08)}
+.nav-btn.active{color:#fff;border-bottom-color:#fff;background:rgba(255,255,255,.1)}
+.nav-btn svg{width:15px;height:15px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* CONTENT */
+.page{display:none;padding:20px;max-width:1300px;margin:0 auto}
+.page.active{display:block}
+
+/* SETUP BANNER */
+.setup-banner{background:#fff;border:2px dashed var(--gray3);border-radius:var(--radius2);padding:24px;margin-bottom:20px;text-align:center}
+.setup-banner.hidden{display:none}
+.setup-title{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px}
+.setup-sub{font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6}
+.setup-input-row{display:flex;gap:10px;max-width:600px;margin:0 auto;flex-wrap:wrap;justify-content:center}
+.setup-input{flex:1;min-width:200px;background:#fff;border:1px solid var(--gray3);border-radius:var(--radius);padding:9px 12px;color:var(--text);font-size:13px;font-family:'Roboto',sans-serif;outline:none}
+.setup-input:focus{border-color:var(--navy)}
+
+/* METRICS */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.metric-card{background:#fff;border-radius:var(--radius2);border:1px solid var(--gray3);padding:16px 18px;border-left:3px solid var(--navy)}
+.metric-label{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.metric-val{font-size:28px;font-weight:700;font-family:'Roboto Mono',monospace;line-height:1;color:var(--navy)}
+.metric-note{font-size:11px;color:var(--text3);margin-top:5px}
+.metric-card.green .metric-val{color:var(--green)}
+.metric-card.red .metric-val{color:var(--red)}
+.metric-card.amber .metric-val{color:var(--amber)}
+
+/* SECTION */
+.section{background:#fff;border-radius:var(--radius2);border:1px solid var(--gray3);margin-bottom:16px;overflow:hidden}
+.section-head{padding:14px 18px;border-bottom:1px solid var(--gray3);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.section-title{font-size:14px;font-weight:600;color:var(--navy);display:flex;align-items:center;gap:7px}
+.section-title svg{width:16px;height:16px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.section-body{padding:18px}
+
+/* FORM */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:12px;font-weight:500;color:var(--text2)}
+.req{color:var(--red);margin-left:2px}
+.form-input,.form-select{background:#fff;border:1px solid var(--gray3);border-radius:var(--radius);padding:9px 12px;color:var(--text);font-size:13px;font-family:'Roboto',sans-serif;outline:none;width:100%;transition:border-color .2s}
+.form-input:focus,.form-select:focus{border-color:var(--navy)}
+.upper{text-transform:uppercase;font-family:'Roboto Mono',monospace;letter-spacing:.5px}
+.form-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;align-items:center}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--radius);border:1px solid transparent;font-size:13px;font-weight:500;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s;white-space:nowrap}
+.btn svg{width:15px;height:15px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--navy2)}
+.btn-green{background:var(--green);border-color:var(--green);color:#fff}
+.btn-green:hover:not(:disabled){background:#15803d}
+.btn-red{background:var(--red);border-color:var(--red);color:#fff}
+.btn-red:hover:not(:disabled){background:#b91c1c}
+.btn-outline{background:#fff;border-color:var(--gray3);color:var(--text2)}
+.btn-outline:hover:not(:disabled){border-color:var(--navy);color:var(--navy)}
+.btn-sm{padding:6px 12px;font-size:12px}
+
+/* BADGE / STATUS */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.badge.en-planta{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+.badge.en-planta .badge-dot{background:var(--green)}
+.badge.salio{background:var(--gray2);color:var(--text3);border:1px solid var(--gray3)}
+.badge.salio .badge-dot{background:var(--text3)}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:700px}
+thead tr{background:var(--gray2)}
+th{padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;border-bottom:1px solid var(--gray3)}
+td{padding:10px 12px;border-bottom:1px solid var(--gray3);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--gray)}
+.mono{font-family:'Roboto Mono',monospace;font-size:12px}
+.num-badge{background:var(--gray2);border:1px solid var(--gray3);border-radius:4px;padding:2px 7px;font-family:'Roboto Mono',monospace;font-size:12px;font-weight:500;color:var(--navy)}
+.placa-badge{background:var(--navy);color:#fff;border-radius:4px;padding:2px 9px;font-family:'Roboto Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.5px}
+
+/* ALERT */
+.alert{padding:10px 14px;border-radius:var(--radius);font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px}
+.alert svg{width:16px;height:16px;flex-shrink:0}
+.alert.success{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+.alert.error{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+.alert.warning{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border)}
+.alert.info{background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe}
+.alert.hidden{display:none}
+
+/* MODAL */
+.modal-wrap{display:none;min-height:500px;background:rgba(15,34,64,.6);border-radius:var(--radius2);align-items:center;justify-content:center;padding:20px}
+.modal-wrap.open{display:flex}
+.modal{background:#fff;border-radius:var(--radius2);padding:24px;width:100%;max-width:440px;border:1px solid var(--gray3)}
+.modal-title{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);line-height:1;padding:2px}
+.modal-close:hover{color:var(--text)}
+.modal-info{background:var(--gray2);border-radius:var(--radius);padding:14px;margin-bottom:14px;border:1px solid var(--gray3)}
+.modal-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px}
+.modal-row-label{color:var(--text2)}
+.modal-row-val{font-weight:500}
+
+/* SEARCH */
+.search-wrap{position:relative;flex:1;min-width:180px}
+.search-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+.search-ico svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.search-field{padding-left:34px !important}
+
+/* SPINNER */
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* MOBILE NAV */
+.mobile-nav{display:none;background:#fff;border-bottom:1px solid var(--gray3);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.mobile-nav .nav-btn{color:var(--text2);padding:10px 14px;font-size:12px;flex-shrink:0;border-bottom:3px solid transparent}
+.mobile-nav .nav-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
+
+/* FOOTER */
+.footer-bar{background:var(--navy);color:rgba(255,255,255,.45);padding:8px 20px;font-size:11px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px}
+
+@media(max-width:700px){
+  .page{padding:12px}
+  .metrics{grid-template-columns:repeat(2,1fr)}
+  .header-nav{display:none}
+  .mobile-nav{display:flex}
+  .brand-name{font-size:14px}
+  .btn{font-size:12px;padding:8px 12px}
+  .clock-time{font-size:15px}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo-box">
+      <svg viewBox="0 0 24 24"><rect x="1" y="8" width="22" height="10" rx="2"/><path d="M5 8V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+    </div>
+    <div class="brand">
+      <div class="brand-name">SUGAL — Control Vehicular</div>
+      <div class="brand-sub">
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="syncLabel">Conectando...</span>
+      </div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="header-nav">
+      <button class="nav-btn active" onclick="showPage('dashboard')">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard
+      </button>
+      <button class="nav-btn" onclick="showPage('entrada')">
+        <svg viewBox="0 0 24 24"><path d="M15 3h6v18h-6"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>Registrar
+      </button>
+      <button class="nav-btn" onclick="showPage('enplanta')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>En Planta
+      </button>
+      <button class="nav-btn" onclick="showPage('historial')">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Historial
+      </button>
+      <button class="nav-btn" onclick="showPage('config')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Configuración
+      </button>
+    </div>
+    <div class="clock-box">
+      <div class="clock-time" id="clockTime">--:--</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5)" id="clockDate"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE NAV -->
+<div class="mobile-nav">
+  <button class="nav-btn active" onclick="showPage('dashboard')">Dashboard</button>
+  <button class="nav-btn" onclick="showPage('entrada')">Registrar</button>
+  <button class="nav-btn" onclick="showPage('enplanta')">En Planta</button>
+  <button class="nav-btn" onclick="showPage('historial')">Historial</button>
+  <button class="nav-btn" onclick="showPage('config')">Config</button>
+</div>
+
+<!-- GLOBAL ALERT -->
+<div style="padding:0 20px;max-width:1300px;margin:0 auto">
+  <div id="globalAlert" class="alert hidden" style="margin-top:12px"></div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div id="page-dashboard" class="page active">
+  <div class="metrics" id="metricsContainer">
+    <div class="metric-card"><div class="metric-label">Cargando...</div><div class="metric-val" style="color:var(--gray3)">—</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Vehículos en planta
+        </div>
+        <span id="dashActiveBadge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500">0</span>
+      </div>
+      <div id="dashActivosTable" style="overflow-x:auto"></div>
+    </div>
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Últimos movimientos
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="sincronizar()">
+          <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Sincronizar
+        </button>
+      </div>
+      <div id="dashMovimientos" style="overflow-x:auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== REGISTRAR ===== -->
+<div id="page-entrada" class="page">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title" style="color:var(--green)">
+          <svg viewBox="0 0 24 24"><path d="M15 3h6v18h-6"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Registrar Entrada
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Patente<span class="req">*</span></label>
+            <input id="e-placa" class="form-input upper" placeholder="Ej: BBCD12" maxlength="10">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Chofer<span class="req">*</span></label>
+            <input id="e-chofer" class="form-input" placeholder="Nombre completo">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Empresa</label>
+            <input id="e-empresa" class="form-input" placeholder="Empresa / Transportista">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Motivo</label>
+            <select id="e-motivo" class="form-select">
+              <option value="">— Sin especificar —</option>
+              <option>Descarga materia prima</option>
+              <option>Retiro de producto</option>
+              <option>Mantenimiento</option>
+              <option>Visita</option>
+              <option>Contratista</option>
+              <option>Otro</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-green" id="btnEntrada" onclick="registrarEntrada()">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            Registrar Entrada
+          </button>
+          <button class="btn btn-outline" onclick="clearForm('entrada')">Limpiar</button>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title" style="color:var(--red)">
+          <svg viewBox="0 0 24 24"><path d="M9 21H3V3h6"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Registrar Salida
+        </div>
+      </div>
+      <div class="section-body">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Ingresa la patente del vehículo que sale:</p>
+        <div class="form-group">
+          <label class="form-label">Patente<span class="req">*</span></label>
+          <input id="s-placa" class="form-input upper" placeholder="Ej: BBCD12" maxlength="10">
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-red" id="btnSalida" onclick="buscarParaSalida()">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Buscar y Registrar Salida
+          </button>
+        </div>
+        <div id="salidaResult" style="margin-top:14px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== EN PLANTA ===== -->
+<div id="page-enplanta" class="page">
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Vehículos actualmente en planta
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="sincronizar()">
+        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Actualizar
+      </button>
+    </div>
+    <div class="tbl-wrap" id="enPlantaTable"></div>
+  </div>
+</div>
+
+<!-- ===== HISTORIAL ===== -->
+<div id="page-historial" class="page">
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Historial completo
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div class="search-wrap">
+          <span class="search-ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <input id="histSearch" class="form-input search-field" placeholder="Buscar patente, chofer..." oninput="renderHistorial()" style="min-width:180px">
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="sincronizar()">
+          <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Sincronizar
+        </button>
+      </div>
+    </div>
+    <div class="tbl-wrap" id="historialTable"></div>
+  </div>
+</div>
+
+<!-- ===== CONFIGURACIÓN ===== -->
+<div id="page-config" class="page">
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configuración — Conexión Google Sheets
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="alert info" style="margin-bottom:16px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Pega aquí la URL de tu Google Apps Script desplegado. Mira el archivo <strong>INSTRUCCIONES.md</strong> para obtenerla.</span>
+      </div>
+      <div class="form-group" style="max-width:600px">
+        <label class="form-label">URL del Web App (Google Apps Script)</label>
+        <input id="cfg-url" class="form-input" placeholder="https://script.google.com/macros/s/XXXXX/exec" style="font-family:'Roboto Mono',monospace;font-size:12px">
+      </div>
+      <div class="form-actions" style="margin-top:14px">
+        <button class="btn btn-primary" onclick="guardarConfig()">Guardar y Probar Conexión</button>
+        <button class="btn btn-outline" onclick="limpiarConfig()">Desconectar</button>
+      </div>
+      <div id="cfgResult" style="margin-top:14px"></div>
+      <hr style="border:none;border-top:1px solid var(--gray3);margin:20px 0">
+      <div class="form-group">
+        <label class="form-label" style="font-size:13px;font-weight:600;color:var(--navy)">Estado actual</label>
+        <div id="cfgStatus" style="margin-top:8px;font-size:13px;color:var(--text2)">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMAR SALIDA -->
+<div id="modalSalida" class="modal-wrap">
+  <div class="modal">
+    <div class="modal-title">
+      Confirmar Salida
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div id="modalContent"></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-red" id="btnConfirmarSalida" onclick="confirmarSalida()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Confirmar Salida
+      </button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer-bar">
+  <span>SUGAL — Control Vehicular de Planta</span>
+  <span id="footerInfo">Sin datos</span>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const LS_KEY = 'sugal_cv_v3';
+const LS_CFG = 'sugal_cv_cfg';
+
+let records = [];
+let scriptUrl = '';
+let currentPage = 'dashboard';
+let pendingSalidaId = null;
+let isSyncing = false;
+
+// ============================================================
+// STORAGE
+// ============================================================
+function loadLocal(){
+  try{ const d=localStorage.getItem(LS_KEY); if(d) records=JSON.parse(d); }catch(e){ records=[]; }
+  try{ const c=localStorage.getItem(LS_CFG); if(c){ const cfg=JSON.parse(c); scriptUrl=cfg.url||''; } }catch(e){}
+}
+function saveLocal(){ try{ localStorage.setItem(LS_KEY,JSON.stringify(records)); }catch(e){} }
+function saveConfig(){ try{ localStorage.setItem(LS_CFG,JSON.stringify({url:scriptUrl})); }catch(e){} }
+
+// ============================================================
+// UTIL
+// ============================================================
+function padZ(n){ return String(n).padStart(2,'0'); }
+function tsToDate(ts){ const d=new Date(ts); return padZ(d.getDate())+'/'+padZ(d.getMonth()+1)+'/'+d.getFullYear(); }
+function tsToTime(ts){ const d=new Date(ts); return padZ(d.getHours())+':'+padZ(d.getMinutes()); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6).toUpperCase(); }
+function elapsed(ts){
+  const m=Math.round((Date.now()-ts)/60000);
+  if(m<1)return '<1 min'; if(m<60)return m+' min';
+  const h=Math.floor(m/60),r=m%60; return h+'h'+(r?' '+r+'m':'');
+}
+function duracion(t1,t2){
+  if(!t1||!t2)return '—';
+  const m=Math.round((t2-t1)/60000);
+  if(m<60)return m+' min';
+  const h=Math.floor(m/60),r=m%60; return h+'h'+(r?' '+r+'m':'');
+}
+// Convertir registro local a formato para tabla
+function fmtEntrada(r){ return r.fechaIngreso||tsToDate(r.entrada||Date.now()); }
+function fmtHoraE(r){ return r.horaIngreso||tsToTime(r.entrada||Date.now()); }
+function fmtSalida(r){ if(!r.salida&&!r.fechaSalida)return '—'; return r.fechaSalida||tsToDate(r.salida); }
+function fmtHoraS(r){ if(!r.salida&&!r.horaSalida)return '—'; return r.horaSalida||tsToTime(r.salida); }
+function hasSalida(r){ return !!(r.salida||r.fechaSalida); }
+
+// ============================================================
+// SYNC STATUS UI
+// ============================================================
+function setSyncStatus(state, label){
+  const dot=document.getElementById('syncDot');
+  const lbl=document.getElementById('syncLabel');
+  dot.className='sync-dot'+(state==='syncing'?' syncing':state==='error'?' error':'');
+  lbl.textContent=label;
+}
+
+// ============================================================
+// ALERT
+// ============================================================
+function showAlert(msg, type='success'){
+  const el=document.getElementById('globalAlert');
+  el.innerHTML=msg;
+  el.className='alert '+type;
+  clearTimeout(showAlert._t);
+  showAlert._t=setTimeout(()=>{ el.className='alert hidden'; }, 4500);
+}
+
+// ============================================================
+// GOOGLE SHEETS API
+// ============================================================
+async function apiGet(action){
+  if(!scriptUrl) return null;
+  const url=scriptUrl+'?action='+action+'&t='+Date.now();
+  const r=await fetch(url);
+  return r.json();
+}
+async function apiPost(body){
+  if(!scriptUrl) return null;
+  const r=await fetch(scriptUrl,{method:'POST',body:JSON.stringify(body)});
+  return r.json();
+}
+
+async function sincronizar(){
+  if(!scriptUrl){ setSyncStatus('error','Sin URL configurada'); return; }
+  if(isSyncing) return;
+  isSyncing=true;
+  setSyncStatus('syncing','Sincronizando...');
+  try{
+    const data=await apiGet('listar');
+    if(data && data.registros){
+      // Merge: registros remotos tienen prioridad
+      const remoteIds=new Set(data.registros.map(r=>r.id));
+      // Registros locales que aún no están en remoto (pendientes de subir)
+      const pendientes=records.filter(r=>!remoteIds.has(r.id));
+      // Si hay pendientes, subirlos
+      if(pendientes.length>0){
+        await apiPost({action:'importar', registros: pendientes.map(r=>({
+          id:r.id, num:r.num, placa:r.placa, chofer:r.chofer, empresa:r.empresa,
+          motivo:r.motivo||'',
+          fechaIngreso:tsToDate(r.entrada), horaIngreso:tsToTime(r.entrada),
+          fechaSalida: hasSalida(r)?fmtSalida(r):'',
+          horaSalida:  hasSalida(r)?fmtHoraS(r):'',
+          entrada:r.entrada, salida:r.salida||null
+        }))});
+      }
+      // Actualizar local con datos remotos
+      const remoteMap={};
+      data.registros.forEach(r=>remoteMap[r.id]=r);
+      // Combinar
+      const allIds=new Set([...data.registros.map(r=>r.id),...pendientes.map(r=>r.id)]);
+      records=[];
+      allIds.forEach(id=>{
+        if(remoteMap[id]){
+          const rem=remoteMap[id];
+          records.push({
+            id:rem.id, num:rem.num, placa:rem.placa, chofer:rem.chofer,
+            empresa:rem.empresa||'', motivo:rem.motivo||'',
+            fechaIngreso:rem.fechaIngreso, horaIngreso:rem.horaIngreso,
+            fechaSalida:rem.fechaSalida||'', horaSalida:rem.horaSalida||'',
+            entrada:null, salida:rem.fechaSalida?1:null
+          });
+        } else {
+          const loc=pendientes.find(r=>r.id===id);
+          if(loc) records.push(loc);
+        }
+      });
+      saveLocal();
+      setSyncStatus('ok','Sincronizado — '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}));
+      renderPage(currentPage);
+    }
+  } catch(err){
+    setSyncStatus('error','Error de conexión');
+    console.error(err);
+  }
+  isSyncing=false;
+}
+
+// ============================================================
+// PAGES
+// ============================================================
+function showPage(p){
+  currentPage=p;
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    const oc=b.getAttribute('onclick')||'';
+    b.classList.toggle('active', oc.includes("'"+p+"'"));
+  });
+  renderPage(p);
+  if(p==='config') loadConfigForm();
+}
+function renderPage(p){
+  if(p==='dashboard')renderDashboard();
+  else if(p==='enplanta')renderEnPlanta();
+  else if(p==='historial')renderHistorial();
+}
+
+// ---- DASHBOARD ----
+function renderDashboard(){
+  const activos=records.filter(r=>!hasSalida(r));
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const hoyRecs=records.filter(r=>{
+    const ts=r.entrada||(r.fechaIngreso?parseLocalDate(r.fechaIngreso,r.horaIngreso):null);
+    return ts&&new Date(ts)>=hoy;
+  });
+
+  document.getElementById('metricsContainer').innerHTML=`
+    <div class="metric-card"><div class="metric-label">Total registros</div><div class="metric-val">${records.length}</div><div class="metric-note">histórico</div></div>
+    <div class="metric-card green"><div class="metric-label">En planta ahora</div><div class="metric-val">${activos.length}</div><div class="metric-note">vehículos activos</div></div>
+    <div class="metric-card amber"><div class="metric-label">Ingresos hoy</div><div class="metric-val">${hoyRecs.length}</div><div class="metric-note">${new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'short'})}</div></div>
+    <div class="metric-card"><div class="metric-label">Con salida registrada</div><div class="metric-val">${records.filter(r=>hasSalida(r)).length}</div><div class="metric-note">completados</div></div>`;
+
+  document.getElementById('dashActiveBadge').textContent=activos.length+' vehículo'+(activos.length!==1?'s':'');
+
+  if(activos.length===0){
+    document.getElementById('dashActivosTable').innerHTML='<div style="text-align:center;padding:28px;color:var(--text3);font-size:13px">Sin vehículos en planta</div>';
+  } else {
+    document.getElementById('dashActivosTable').innerHTML=`<table><thead><tr><th>N°</th><th>Patente</th><th>Chofer</th><th>Empresa</th><th>Ingreso</th><th>Tiempo</th><th>Acción</th></tr></thead><tbody>
+    ${activos.slice(0,8).map(r=>`<tr>
+      <td><span class="num-badge">${String(r.num||'?').padStart(4,'0')}</span></td>
+      <td><span class="placa-badge">${r.placa}</span></td>
+      <td>${r.chofer}</td>
+      <td>${r.empresa||'—'}</td>
+      <td class="mono">${fmtEntrada(r)} ${fmtHoraE(r)}</td>
+      <td>${r.entrada?`<span class="badge en-planta"><span class="badge-dot"></span>${elapsed(r.entrada)}</span>`:'<span class="badge en-planta"><span class="badge-dot"></span>En planta</span>'}</td>
+      <td><button class="btn btn-red btn-sm" onclick="openModalSalida('${r.id}')">Registrar Salida</button></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+  }
+
+  const ultimos=records.slice().sort((a,b)=>(b.entrada||0)-(a.entrada||0)).slice(0,8);
+  if(ultimos.length===0){
+    document.getElementById('dashMovimientos').innerHTML='<div style="text-align:center;padding:28px;color:var(--text3);font-size:13px">Sin movimientos</div>';
+  } else {
+    document.getElementById('dashMovimientos').innerHTML=`<table><thead><tr><th>N°</th><th>Patente</th><th>Chofer</th><th>Fecha</th><th>Estado</th></tr></thead><tbody>
+    ${ultimos.map(r=>`<tr>
+      <td><span class="num-badge">${String(r.num||'?').padStart(4,'0')}</span></td>
+      <td><span class="placa-badge">${r.placa}</span></td>
+      <td>${r.chofer}</td>
+      <td class="mono">${fmtEntrada(r)} ${fmtHoraE(r)}</td>
+      <td>${hasSalida(r)?'<span class="badge salio"><span class="badge-dot"></span>Salió</span>':'<span class="badge en-planta"><span class="badge-dot"></span>En planta</span>'}</td>
+    </tr>`).join('')}
+    </tbody></table>`;
+  }
+  document.getElementById('footerInfo').textContent=records.length+' registros · '+activos.length+' en planta';
+}
+
+// ---- EN PLANTA ----
+function renderEnPlanta(){
+  const activos=records.filter(r=>!hasSalida(r));
+  if(activos.length===0){
+    document.getElementById('enPlantaTable').innerHTML='<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">No hay vehículos en planta actualmente</div>';
+    return;
+  }
+  document.getElementById('enPlantaTable').innerHTML=`<table><thead><tr><th>N° Asignado</th><th>Patente</th><th>Chofer</th><th>Empresa</th><th>Fecha Ingreso</th><th>Hora Ingreso</th><th>Tiempo</th><th>Acción</th></tr></thead><tbody>
+  ${activos.map(r=>`<tr>
+    <td><span class="num-badge">${String(r.num||'?').padStart(4,'0')}</span></td>
+    <td><span class="placa-badge">${r.placa}</span></td>
+    <td>${r.chofer}</td>
+    <td>${r.empresa||'—'}</td>
+    <td class="mono">${fmtEntrada(r)}</td>
+    <td class="mono">${fmtHoraE(r)}</td>
+    <td>${r.entrada?`<span class="badge en-planta"><span class="badge-dot"></span>${elapsed(r.entrada)}</span>`:'<span class="badge en-planta"><span class="badge-dot"></span>En planta</span>'}</td>
+    <td><button class="btn btn-red btn-sm" onclick="openModalSalida('${r.id}')">Registrar Salida</button></td>
+  </tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ---- HISTORIAL ----
+function renderHistorial(){
+  const q=(document.getElementById('histSearch')?.value||'').toLowerCase().trim();
+  let recs=records.slice().sort((a,b)=>(b.entrada||0)-(a.entrada||0));
+  if(q) recs=recs.filter(r=>
+    r.placa.toLowerCase().includes(q)||
+    r.chofer.toLowerCase().includes(q)||
+    (r.empresa||'').toLowerCase().includes(q)
+  );
+  if(recs.length===0){
+    document.getElementById('historialTable').innerHTML='<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">Sin resultados</div>';
+    return;
+  }
+  document.getElementById('historialTable').innerHTML=`<table><thead><tr><th>N° Asignado</th><th>Patente</th><th>Chofer</th><th>Empresa</th><th>Fecha Ingreso</th><th>Hora Ingreso</th><th>Fecha Salida</th><th>Hora Salida</th><th>Estado</th></tr></thead><tbody>
+  ${recs.map(r=>`<tr>
+    <td><span class="num-badge">${String(r.num||'?').padStart(4,'0')}</span></td>
+    <td><span class="placa-badge">${r.placa}</span></td>
+    <td>${r.chofer}</td>
+    <td>${r.empresa||'—'}</td>
+    <td class="mono">${fmtEntrada(r)}</td>
+    <td class="mono">${fmtHoraE(r)}</td>
+    <td class="mono">${fmtSalida(r)}</td>
+    <td class="mono">${fmtHoraS(r)}</td>
+    <td>${hasSalida(r)?'<span class="badge salio"><span class="badge-dot"></span>Salió</span>':'<span class="badge en-planta"><span class="badge-dot"></span>En planta</span>'}</td>
+  </tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ============================================================
+// ENTRADA
+// ============================================================
+async function registrarEntrada(){
+  const placa=(document.getElementById('e-placa').value||'').trim().toUpperCase();
+  const chofer=(document.getElementById('e-chofer').value||'').trim();
+  const empresa=(document.getElementById('e-empresa').value||'').trim();
+  const motivo=document.getElementById('e-motivo').value;
+  if(!placa||!chofer){ showAlert('Patente y chofer son obligatorios','error'); return; }
+
+  const dup=records.find(r=>!hasSalida(r)&&r.placa===placa);
+  if(dup){ showAlert('⚠ '+placa+' ya está registrado en planta (N°'+String(dup.num||'?').padStart(4,'0')+')','warning'); return; }
+
+  const btn=document.getElementById('btnEntrada');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spinner"></span> Registrando...';
+
+  const id=uid();
+  const ts=Date.now();
+  const maxNum=records.length>0?Math.max(...records.map(r=>r.num||0)):0;
+  const num=maxNum+1;
+
+  // Guardar local primero (offline-first)
+  const record={id,num,placa,chofer,empresa,motivo,entrada:ts,salida:null,
+    fechaIngreso:tsToDate(ts),horaIngreso:tsToTime(ts),fechaSalida:'',horaSalida:''};
+  records.unshift(record);
+  saveLocal();
+
+  // Enviar a Sheets
+  if(scriptUrl){
+    try{
+      const resp=await apiPost({action:'entrada',placa,chofer,empresa,motivo,entrada:ts,id});
+      if(resp&&resp.error){ showAlert('Guardado localmente. Error Sheets: '+resp.error,'warning'); }
+      else { setSyncStatus('ok','Sincronizado — '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})); }
+    } catch(err){ showAlert('Guardado localmente. Sin conexión a Sheets.','warning'); }
+  } else {
+    showAlert('Registrado localmente. Configura Google Sheets para sincronizar.','warning');
+  }
+
+  showAlert('Ingreso registrado: '+placa+' — '+chofer,'success');
+  clearForm('entrada');
+  btn.disabled=false;
+  btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><polyline points="20 6 9 17 4 12"/></svg> Registrar Entrada';
+  showPage('enplanta');
+}
+
+function clearForm(type){
+  if(type==='entrada'){
+    ['e-placa','e-chofer','e-empresa','e-motivo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  }
+}
+
+// ============================================================
+// SALIDA
+// ============================================================
+function buscarParaSalida(){
+  const placa=(document.getElementById('s-placa').value||'').trim().toUpperCase();
+  if(!placa){ showAlert('Ingresa la patente','error'); return; }
+  const r=records.find(x=>!hasSalida(x)&&x.placa===placa);
+  const div=document.getElementById('salidaResult');
+  if(!r){
+    div.innerHTML=`<div class="alert error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span>No se encontró ${placa} activo en planta</span></div>`;
+    return;
+  }
+  div.innerHTML=`<div class="modal-info">
+    <div class="modal-row"><span class="modal-row-label">N° Asignado</span><span class="num-badge">${String(r.num||'?').padStart(4,'0')}</span></div>
+    <div class="modal-row"><span class="modal-row-label">Patente</span><span class="placa-badge">${r.placa}</span></div>
+    <div class="modal-row"><span class="modal-row-label">Chofer</span><span class="modal-row-val">${r.chofer}</span></div>
+    <div class="modal-row"><span class="modal-row-label">Empresa</span><span class="modal-row-val">${r.empresa||'—'}</span></div>
+    <div class="modal-row"><span class="modal-row-label">Ingresó</span><span class="modal-row-val mono">${fmtEntrada(r)} ${fmtHoraE(r)}</span></div>
+    ${r.entrada?`<div class="modal-row"><span class="modal-row-label">Tiempo en planta</span><span class="badge en-planta"><span class="badge-dot"></span>${elapsed(r.entrada)}</span></div>`:''}
+  </div>
+  <button class="btn btn-red" onclick="ejecutarSalida('${r.id}')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M9 21H3V3h6"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    Confirmar Salida
+  </button>`;
+}
+
+function openModalSalida(id){
+  pendingSalidaId=id;
+  const r=records.find(x=>x.id===id); if(!r)return;
+  document.getElementById('modalContent').innerHTML=`
+    <div class="modal-info">
+      <div class="modal-row"><span class="modal-row-label">N° Asignado</span><span class="num-badge">${String(r.num||'?').padStart(4,'0')}</span></div>
+      <div class="modal-row"><span class="modal-row-label">Patente</span><span class="placa-badge">${r.placa}</span></div>
+      <div class="modal-row"><span class="modal-row-label">Chofer</span><span class="modal-row-val">${r.chofer}</span></div>
+      <div class="modal-row"><span class="modal-row-label">Empresa</span><span class="modal-row-val">${r.empresa||'—'}</span></div>
+      <div class="modal-row"><span class="modal-row-label">Ingresó</span><span class="modal-row-val mono">${fmtEntrada(r)} ${fmtHoraE(r)}</span></div>
+      ${r.entrada?`<div class="modal-row"><span class="modal-row-label">Tiempo en planta</span><span class="badge en-planta"><span class="badge-dot"></span>${elapsed(r.entrada)}</span></div>`:''}
+    </div>
+    <p style="font-size:13px;color:var(--text2)">¿Confirmas el registro de salida para este vehículo?</p>`;
+  document.getElementById('modalSalida').classList.add('open');
+}
+function closeModal(){ document.getElementById('modalSalida').classList.remove('open'); pendingSalidaId=null; }
+function confirmarSalida(){ if(pendingSalidaId){ ejecutarSalida(pendingSalidaId); closeModal(); } }
+
+async function ejecutarSalida(id){
+  const r=records.find(x=>x.id===id);
+  if(!r){ showAlert('Registro no encontrado','error'); return; }
+  const ts=Date.now();
+  r.salida=ts;
+  r.fechaSalida=tsToDate(ts);
+  r.horaSalida=tsToTime(ts);
+  saveLocal();
+
+  if(scriptUrl){
+    try{
+      const resp=await apiPost({action:'salida',id,salida:ts});
+      if(resp&&resp.error){ showAlert('Salida guardada localmente. Error Sheets: '+resp.error,'warning'); }
+      else { setSyncStatus('ok','Sincronizado — '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})); }
+    } catch(err){ showAlert('Salida guardada localmente. Sin conexión a Sheets.','warning'); }
+  }
+
+  showAlert('Salida registrada: '+r.placa,'success');
+  document.getElementById('salidaResult').innerHTML='';
+  document.getElementById('s-placa').value='';
+  renderPage(currentPage);
+}
+
+// ============================================================
+// CONFIG
+// ============================================================
+function loadConfigForm(){
+  document.getElementById('cfg-url').value=scriptUrl||'';
+  const st=document.getElementById('cfgStatus');
+  if(scriptUrl){
+    st.innerHTML='<span style="color:var(--green);font-weight:500">Conectado</span> — '+scriptUrl.slice(0,60)+'...';
+  } else {
+    st.innerHTML='<span style="color:var(--text3)">Sin configurar</span>';
+  }
+}
+
+async function guardarConfig(){
+  const url=(document.getElementById('cfg-url').value||'').trim();
+  if(!url){ showAlert('Ingresa una URL válida','error'); return; }
+  scriptUrl=url;
+  saveConfig();
+  const div=document.getElementById('cfgResult');
+  div.innerHTML='<div class="alert info">Probando conexión...</div>';
+  try{
+    const data=await apiGet('ping');
+    if(data&&data.ok){
+      div.innerHTML='<div class="alert success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><polyline points="20 6 9 17 4 12"/></svg> Conexión exitosa con Google Sheets</div>';
+      setSyncStatus('ok','Conectado a Google Sheets');
+      sincronizar();
+    } else {
+      div.innerHTML='<div class="alert error">Respuesta inesperada del servidor. Verifica la URL.</div>';
+    }
+  } catch(err){
+    div.innerHTML='<div class="alert error">No se pudo conectar. Verifica que el script esté publicado correctamente.</div>';
+    setSyncStatus('error','Error de conexión');
+  }
+  loadConfigForm();
+}
+
+function limpiarConfig(){
+  scriptUrl='';
+  saveConfig();
+  document.getElementById('cfg-url').value='';
+  document.getElementById('cfgResult').innerHTML='';
+  setSyncStatus('error','Sin conexión');
+  loadConfigForm();
+}
+
+// ============================================================
+// PARSE DATE
+// ============================================================
+function parseLocalDate(dateStr, timeStr){
+  if(!dateStr)return null;
+  const p=dateStr.split('/');
+  if(p.length<3)return null;
+  const tp=(timeStr||'00:00').split(':');
+  return new Date(+p[2],+p[1]-1,+p[0],+tp[0]||0,+tp[1]||0).getTime();
+}
+
+// ============================================================
+// CLOCK
+// ============================================================
+function tick(){
+  const n=new Date();
+  document.getElementById('clockTime').textContent=padZ(n.getHours())+':'+padZ(n.getMinutes())+':'+padZ(n.getSeconds());
+  document.getElementById('clockDate').textContent=n.toLocaleDateString('es-CL',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+}
+setInterval(tick,1000); tick();
+
+// Auto-sync cada 5 minutos
+setInterval(()=>{ if(scriptUrl) sincronizar(); }, 5*60*1000);
+
+// ============================================================
+// INIT
+// ============================================================
+loadLocal();
+if(scriptUrl){
+  setSyncStatus('syncing','Conectando...');
+  sincronizar();
+} else {
+  setSyncStatus('error','Sin Google Sheets — configura en ⚙');
+}
+renderDashboard();
+</script>
+</body>
+</html>
