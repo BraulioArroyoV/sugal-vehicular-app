@@ -281,13 +281,17 @@ tr:hover td{background:var(--gray)}
             <label class="form-label">Motivo</label>
             <select id="e-motivo" class="form-select">
               <option value="">— Sin especificar —</option>
-              <option>Descarga materia prima</option>
+              <option>Proveedor</option>
               <option>Retiro de producto</option>
               <option>Mantenimiento</option>
               <option>Visita</option>
               <option>Contratista</option>
               <option>Otro</option>
             </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">N° Asignado<span class="req">*</span></label>
+            <select id="e-num" class="form-select"></select>
           </div>
         </div>
         <div class="form-actions">
@@ -462,10 +466,10 @@ function duracion(t1,t2){
   const h=Math.floor(m/60),r=m%60; return h+'h'+(r?' '+r+'m':'');
 }
 // Convertir registro local a formato para tabla
-function fmtEntrada(r){ return r.fechaIngreso||tsToDate(r.entrada||Date.now()); }
-function fmtHoraE(r){ return r.horaIngreso||tsToTime(r.entrada||Date.now()); }
-function fmtSalida(r){ if(!r.salida&&!r.fechaSalida)return '—'; return r.fechaSalida||tsToDate(r.salida); }
-function fmtHoraS(r){ if(!r.salida&&!r.horaSalida)return '—'; return r.horaSalida||tsToTime(r.salida); }
+function fmtEntrada(r){ return cleanDate(r.fechaIngreso)||tsToDate(r.entrada||Date.now()); }
+function fmtHoraE(r){ return cleanTime(r.horaIngreso)||tsToTime(r.entrada||Date.now()); }
+function fmtSalida(r){ if(!r.salida&&!r.fechaSalida)return '—'; return cleanDate(r.fechaSalida)||tsToDate(r.salida); }
+function fmtHoraS(r){ if(!r.salida&&!r.horaSalida)return '—'; return cleanTime(r.horaSalida)||tsToTime(r.salida); }
 function hasSalida(r){ return !!(r.salida||r.fechaSalida); }
 
 // ============================================================
@@ -573,7 +577,8 @@ function showPage(p){
   renderPage(p);
   if(p==='config') loadConfigForm();
 }
-function renderPage(p){
+function renderPage(p){ if(p==='entrada') setTimeout(buildNumSelect,80);
+  if(p==='entrada'){ setTimeout(buildNumSelect,50); }
   if(p==='dashboard')renderDashboard();
   else if(p==='enplanta')renderEnPlanta();
   else if(p==='historial')renderHistorial();
@@ -681,15 +686,35 @@ function renderHistorial(){
 // ============================================================
 // ENTRADA
 // ============================================================
+function buildNumSelect(){
+  const sel=document.getElementById('e-num');
+  if(!sel)return;
+  const ocupados=new Set(records.filter(r=>!hasSalida(r)).map(r=>r.num));
+  sel.innerHTML='<option value="">— Seleccionar N° —</option>';
+  for(let i=1;i<=50;i++){
+    const opt=document.createElement('option');
+    opt.value=i;
+    opt.textContent=String(i).padStart(2,'0')+(ocupados.has(i)?' (ocupado)':'');
+    if(ocupados.has(i)) opt.disabled=true;
+    sel.appendChild(opt);
+  }
+}
+
 async function registrarEntrada(){
   const placa=(document.getElementById('e-placa').value||'').trim().toUpperCase();
   const chofer=(document.getElementById('e-chofer').value||'').trim();
   const empresa=(document.getElementById('e-empresa').value||'').trim();
   const motivo=document.getElementById('e-motivo').value;
+  const num=parseInt(document.getElementById('e-num').value);
+
   if(!placa||!chofer){ showAlert('Patente y chofer son obligatorios','error'); return; }
+  if(!num){ showAlert('Selecciona un N° asignado del 1 al 50','error'); return; }
 
   const dup=records.find(r=>!hasSalida(r)&&r.placa===placa);
-  if(dup){ showAlert('⚠ '+placa+' ya está registrado en planta (N°'+String(dup.num||'?').padStart(4,'0')+')','warning'); return; }
+  if(dup){ showAlert('⚠ '+placa+' ya está en planta (N°'+String(dup.num).padStart(2,'0')+')','warning'); return; }
+
+  const dupNum=records.find(r=>!hasSalida(r)&&r.num===num);
+  if(dupNum){ showAlert('⚠ N°'+String(num).padStart(2,'0')+' ya está ocupado por '+dupNum.placa,'error'); return; }
 
   const btn=document.getElementById('btnEntrada');
   btn.disabled=true;
@@ -697,36 +722,30 @@ async function registrarEntrada(){
 
   const id=uid();
   const ts=Date.now();
-  const maxNum=records.length>0?Math.max(...records.map(r=>r.num||0)):0;
-  const num=maxNum+1;
-
-  // Guardar local primero (offline-first)
   const record={id,num,placa,chofer,empresa,motivo,entrada:ts,salida:null,
     fechaIngreso:tsToDate(ts),horaIngreso:tsToTime(ts),fechaSalida:'',horaSalida:''};
   records.unshift(record);
   saveLocal();
 
-  // Enviar a Sheets
   if(scriptUrl){
     try{
-      const resp=await apiPost({action:'entrada',placa,chofer,empresa,motivo,entrada:ts,id});
+      const resp=await apiPost({action:'entrada',placa,chofer,empresa,motivo,entrada:ts,id,num});
       if(resp&&resp.error){ showAlert('Guardado localmente. Error Sheets: '+resp.error,'warning'); }
-      else { setSyncStatus('ok','Sincronizado — '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})); }
+      else{ setSyncStatus('ok','Sincronizado — '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})); }
     } catch(err){ showAlert('Guardado localmente. Sin conexión a Sheets.','warning'); }
   } else {
     showAlert('Registrado localmente. Configura Google Sheets para sincronizar.','warning');
   }
 
-  showAlert('Ingreso registrado: '+placa+' — '+chofer,'success');
+  showAlert('Ingreso registrado: N°'+String(num).padStart(2,'0')+' — '+placa+' — '+chofer,'success');
   clearForm('entrada');
   btn.disabled=false;
   btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><polyline points="20 6 9 17 4 12"/></svg> Registrar Entrada';
   showPage('enplanta');
 }
-
 function clearForm(type){
   if(type==='entrada'){
-    ['e-placa','e-chofer','e-empresa','e-motivo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    ['e-placa','e-chofer','e-empresa','e-motivo','e-num'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); buildNumSelect();
   }
 }
 
@@ -845,6 +864,42 @@ function limpiarConfig(){
 // ============================================================
 // PARSE DATE
 // ============================================================
+function cleanDateStr(s){
+  if(!s)return '';
+  s=String(s).trim();
+  // Handle ISO format: 2026-04-28T04:00:00.000Z
+  if(s.includes('T')){
+    const d=new Date(s);
+    if(!isNaN(d)){return padZ(d.getDate())+'/'+padZ(d.getMonth()+1)+'/'+d.getFullYear();}
+  }
+  // Handle 1899-12-30... (Excel epoch ghost)
+  if(s.startsWith('1899'))return '';
+  return s;
+}
+function cleanTimeStr(s){
+  if(!s)return '';
+  s=String(s).trim();
+  if(s.includes('T')){
+    const d=new Date(s);
+    if(!isNaN(d)){return padZ(d.getHours())+':'+padZ(d.getMinutes());}
+  }
+  if(s.startsWith('1899'))return '';
+  return s;
+}
+function cleanDate(s){
+  if(!s)return '';
+  s=String(s).trim();
+  if(s.includes('T')&&s.includes('Z')){const d=new Date(s);if(!isNaN(d))return padZ(d.getDate())+'/'+padZ(d.getMonth()+1)+'/'+d.getFullYear();}
+  if(s.startsWith('1899')||s.startsWith('1900'))return '';
+  return s;
+}
+function cleanTime(s){
+  if(!s)return '';
+  s=String(s).trim();
+  if(s.includes('T')&&s.includes('Z')){const d=new Date(s);if(!isNaN(d))return padZ(d.getHours())+':'+padZ(d.getMinutes());}
+  if(s.startsWith('1899')||s.startsWith('1900'))return '';
+  return s;
+}
 function parseLocalDate(dateStr, timeStr){
   if(!dateStr)return null;
   const p=dateStr.split('/');
@@ -870,6 +925,7 @@ setInterval(()=>{ if(scriptUrl) sincronizar(); }, 5*60*1000);
 // INIT
 // ============================================================
 loadLocal();
+buildNumSelect();
 if(scriptUrl){
   setSyncStatus('syncing','Conectando...');
   sincronizar();
