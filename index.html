@@ -473,25 +473,35 @@ function elapsed(ts){
   if(m<1)return '<1 min'; if(m<60)return m+' min';
   const h=Math.floor(m/60),r=m%60; return h+'h'+(r?' '+r+'m':'');
 }
-function cleanDate(s){
-  if(!s)return '';
+function toChile(s){
+  // Convierte cualquier string de fecha/ISO a objeto Date en zona Chile
+  if(!s) return null;
   s=String(s).trim();
-  if(/^\d{4}-\d{2}-\d{2}/.test(s)){
-    const p=s.substring(0,10).split('-');
-    return p[2]+'/'+p[1]+'/'+p[0];
-  }
-  if(s.startsWith('1899')||s.startsWith('1900'))return '';
-  return s;
+  if(s.startsWith('1899')||s.startsWith('1900')) return null;
+  const d=new Date(s);
+  return isNaN(d)?null:d;
+}
+function cleanDate(s){
+  if(!s) return '';
+  s=String(s).trim();
+  // Formato dd/mm/yyyy ya limpio
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  // ISO o cualquier formato reconocible → convertir a Chile
+  const d=toChile(s);
+  if(!d) return '';
+  const chile=new Date(d.toLocaleString('en-US',{timeZone:'America/Santiago'}));
+  return padZ(chile.getDate())+'/'+padZ(chile.getMonth()+1)+'/'+chile.getFullYear();
 }
 function cleanTime(s){
-  if(!s)return '';
+  if(!s) return '';
   s=String(s).trim();
-  if(/^\d{4}-\d{2}-\d{2}T/.test(s)){
-    const t=s.split('T')[1]||'';
-    return t.substring(0,5);
-  }
-  if(s.startsWith('1899')||s.startsWith('1900'))return '';
-  return s;
+  // Formato HH:MM ya limpio
+  if(/^\d{2}:\d{2}$/.test(s)) return s;
+  // 1899... = hora pura de Sheets sin fecha real, extraer HH:MM con offset Chile
+  const d=toChile(s);
+  if(!d) return '';
+  const chile=new Date(d.toLocaleString('en-US',{timeZone:'America/Santiago'}));
+  return padZ(chile.getHours())+':'+padZ(chile.getMinutes());
 }
 function fmtEntrada(r){ return cleanDate(r.fechaIngreso)||'—'; }
 function fmtHoraE(r){ return cleanTime(r.horaIngreso)||'—'; }
