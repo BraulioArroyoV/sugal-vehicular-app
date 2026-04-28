@@ -553,6 +553,7 @@ async function sincronizar(silent=false){
     if(data && data.registros){
       records=data.registros.map(r=>({...r, entrada: entradaTs(r)}));
       setSyncStatus('ok','En línea · '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}));
+      if(currentPage==='entrada') buildNumSelect();
       renderPage(currentPage);
     } else {
       setSyncStatus('error','Sin respuesta de Sheets');
@@ -579,8 +580,14 @@ function showPage(p){
     const oc=b.getAttribute('onclick')||'';
     b.classList.toggle('active', oc.includes("'"+p+"'"));
   });
-  if(p==='config') loadConfigForm();
-  else{ sincronizar(); renderPage(p); }
+  if(p==='config'){
+    loadConfigForm();
+  } else {
+    sincronizar().then(()=>{
+      if(p==='entrada') buildNumSelect();
+      renderPage(p);
+    });
+  }
 }
 
 function renderPage(p){
@@ -686,12 +693,14 @@ function buildNumSelect(){
   const sel=document.getElementById('e-num');
   if(!sel)return;
   const ocupados=new Set(records.filter(r=>!hasSalida(r)).map(r=>Number(r.num)));
-  sel.innerHTML='<option value="">— Seleccionar N° —</option>';
+  sel.innerHTML='<option value="">— Seleccionar N° (1-50) —</option>';
   for(let i=1;i<=50;i++){
     const opt=document.createElement('option');
     opt.value=i;
-    opt.textContent=String(i).padStart(2,'0')+(ocupados.has(i)?' (ocupado)':'');
-    if(ocupados.has(i)) opt.disabled=true;
+    const libre=!ocupados.has(i);
+    opt.textContent=String(i).padStart(2,'0')+(libre?'':' (ocupado)');
+    opt.disabled=!libre;
+    opt.style.color=libre?'':'#94a3b8';
     sel.appendChild(opt);
   }
 }
@@ -705,7 +714,11 @@ async function registrarEntrada(){
   const num=parseInt(document.getElementById('e-num').value);
 
   if(!placa||!chofer){ showAlert('Patente y chofer son obligatorios','error'); return; }
-  if(!num){ showAlert('Selecciona un N° asignado del 1 al 50','error'); return; }
+  if(!num){
+    showAlert('Selecciona un N° asignado del 1 al 50','error');
+    buildNumSelect();
+    return;
+  }
 
   if(!scriptUrl){ showAlert('Sin conexión a Google Sheets. Ve a Configuración ⚙','error'); return; }
 
@@ -866,6 +879,7 @@ if(scriptUrl){
   sincronizar().then(()=>{ buildNumSelect(); startAutoRefresh(); });
 } else {
   setSyncStatus('error','Sin Google Sheets — configura en ⚙');
+  buildNumSelect();
   renderDashboard();
 }
 </script>
