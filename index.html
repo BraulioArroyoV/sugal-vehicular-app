@@ -458,7 +458,7 @@ let autoRefreshTimer = null;
 
 // ── Config (solo guarda URL, no datos) ───────────────────────
 function loadConfig(){
-  try{ const c=localStorage.getItem(LS_CFG); if(c){ const cfg=JSON.parse(c); scriptUrl=cfg.url||''; } }catch(e){}
+  // URL fija en el código — no se sobreescribe desde localStorage
 }
 function saveConfig(){ try{ localStorage.setItem(LS_CFG,JSON.stringify({url:scriptUrl})); }catch(e){} }
 
@@ -873,15 +873,10 @@ document.addEventListener('visibilitychange',function(){
 });
 
 // ── INIT ──────────────────────────────────────────────────────
-loadConfig();
-if(scriptUrl){
-  setSyncStatus('syncing','Conectando a Google Sheets...');
-  sincronizar().then(()=>{ buildNumSelect(); startAutoRefresh(); });
-} else {
-  setSyncStatus('error','Sin Google Sheets — configura en ⚙');
-  buildNumSelect();
-  renderDashboard();
-}
+// URL fija — no depende de configuración del navegador
+scriptUrl = 'https://script.google.com/macros/s/AKfycbzNS5fkiIkDgM5sknCYH_UF_aL7rNWbs8LiNQbx82BEQ_vsgewoSJYRw9hOuslUfxrkGw/exec';
+setSyncStatus('syncing','Conectando a Google Sheets...');
+sincronizar().then(()=>{ buildNumSelect(); startAutoRefresh(); });
 </script>
 </body>
 </html>
