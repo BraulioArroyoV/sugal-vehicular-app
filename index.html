@@ -442,81 +442,95 @@ tr:hover td{background:var(--gray)}
 </div>
 
 <script>
-// ============================================================
-// CONFIG
-// ============================================================
-const LS_KEY = 'sugal_cv_v3';
-const LS_CFG = 'sugal_cv_cfg';
 
-let records = [];
+// ============================================================
+// SUGAL — Control Vehicular | JS completamente en línea
+// Fuente de verdad: Google Sheets. Sin localStorage para datos.
+// ============================================================
+
+const LS_CFG = 'sugal_cv_cfg';
 let scriptUrl = '';
+let records = [];
 let currentPage = 'dashboard';
 let pendingSalidaId = null;
 let isSyncing = false;
+let autoRefreshTimer = null;
 
-// ============================================================
-// STORAGE
-// ============================================================
-function loadLocal(){
-  try{ const d=localStorage.getItem(LS_KEY); if(d) records=JSON.parse(d); }catch(e){ records=[]; }
+// ── Config (solo guarda URL, no datos) ───────────────────────
+function loadConfig(){
   try{ const c=localStorage.getItem(LS_CFG); if(c){ const cfg=JSON.parse(c); scriptUrl=cfg.url||''; } }catch(e){}
 }
-function saveLocal(){ try{ localStorage.setItem(LS_KEY,JSON.stringify(records)); }catch(e){} }
 function saveConfig(){ try{ localStorage.setItem(LS_CFG,JSON.stringify({url:scriptUrl})); }catch(e){} }
 
-// ============================================================
-// UTIL
-// ============================================================
+// ── Utils ─────────────────────────────────────────────────────
 function padZ(n){ return String(n).padStart(2,'0'); }
 function tsToDate(ts){ const d=new Date(ts); return padZ(d.getDate())+'/'+padZ(d.getMonth()+1)+'/'+d.getFullYear(); }
 function tsToTime(ts){ const d=new Date(ts); return padZ(d.getHours())+':'+padZ(d.getMinutes()); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6).toUpperCase(); }
 function elapsed(ts){
+  if(!ts)return '—';
   const m=Math.round((Date.now()-ts)/60000);
   if(m<1)return '<1 min'; if(m<60)return m+' min';
   const h=Math.floor(m/60),r=m%60; return h+'h'+(r?' '+r+'m':'');
 }
-function duracion(t1,t2){
-  if(!t1||!t2)return '—';
-  const m=Math.round((t2-t1)/60000);
-  if(m<60)return m+' min';
-  const h=Math.floor(m/60),r=m%60; return h+'h'+(r?' '+r+'m':'');
+function cleanDate(s){
+  if(!s)return '';
+  s=String(s).trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){
+    const p=s.substring(0,10).split('-');
+    return p[2]+'/'+p[1]+'/'+p[0];
+  }
+  if(s.startsWith('1899')||s.startsWith('1900'))return '';
+  return s;
 }
-// Convertir registro local a formato para tabla
-function fmtEntrada(r){ return cleanDate(r.fechaIngreso)||tsToDate(r.entrada||Date.now()); }
-function fmtHoraE(r){ return cleanTime(r.horaIngreso)||tsToTime(r.entrada||Date.now()); }
-function fmtSalida(r){ if(!r.salida&&!r.fechaSalida)return '—'; return cleanDate(r.fechaSalida)||tsToDate(r.salida); }
-function fmtHoraS(r){ if(!r.salida&&!r.horaSalida)return '—'; return cleanTime(r.horaSalida)||tsToTime(r.salida); }
+function cleanTime(s){
+  if(!s)return '';
+  s=String(s).trim();
+  if(/^\d{4}-\d{2}-\d{2}T/.test(s)){
+    const t=s.split('T')[1]||'';
+    return t.substring(0,5);
+  }
+  if(s.startsWith('1899')||s.startsWith('1900'))return '';
+  return s;
+}
+function fmtEntrada(r){ return cleanDate(r.fechaIngreso)||'—'; }
+function fmtHoraE(r){ return cleanTime(r.horaIngreso)||'—'; }
+function fmtSalida(r){ return r.fechaSalida?cleanDate(r.fechaSalida):'—'; }
+function fmtHoraS(r){ return r.horaSalida?cleanTime(r.horaSalida):'—'; }
 function hasSalida(r){ return !!(r.salida||r.fechaSalida); }
+function entradaTs(r){
+  if(r.entrada) return r.entrada;
+  if(r.fechaIngreso){
+    const p=r.fechaIngreso.split('/');
+    if(p.length===3){
+      const tp=(r.horaIngreso||'00:00').split(':');
+      return new Date(+p[2],+p[1]-1,+p[0],+tp[0]||0,+tp[1]||0).getTime();
+    }
+  }
+  return null;
+}
 
-// ============================================================
-// SYNC STATUS UI
-// ============================================================
-function setSyncStatus(state, label){
+// ── Sync status UI ────────────────────────────────────────────
+function setSyncStatus(state,label){
   const dot=document.getElementById('syncDot');
   const lbl=document.getElementById('syncLabel');
-  dot.className='sync-dot'+(state==='syncing'?' syncing':state==='error'?' error':'');
-  lbl.textContent=label;
+  if(dot) dot.className='sync-dot'+(state==='syncing'?' syncing':state==='error'?' error':'');
+  if(lbl) lbl.textContent=label;
 }
 
-// ============================================================
-// ALERT
-// ============================================================
-function showAlert(msg, type='success'){
+// ── Alert ─────────────────────────────────────────────────────
+function showAlert(msg,type='success'){
   const el=document.getElementById('globalAlert');
-  el.innerHTML=msg;
-  el.className='alert '+type;
+  if(!el)return;
+  el.innerHTML=msg; el.className='alert '+type;
   clearTimeout(showAlert._t);
-  showAlert._t=setTimeout(()=>{ el.className='alert hidden'; }, 4500);
+  showAlert._t=setTimeout(()=>{el.className='alert hidden';},4500);
 }
 
-// ============================================================
-// GOOGLE SHEETS API
-// ============================================================
+// ── API ───────────────────────────────────────────────────────
 async function apiGet(action){
   if(!scriptUrl) return null;
-  const url=scriptUrl+'?action='+action+'&t='+Date.now();
-  const r=await fetch(url);
+  const r=await fetch(scriptUrl+'?action='+action+'&t='+Date.now());
   return r.json();
 }
 async function apiPost(body){
@@ -525,64 +539,38 @@ async function apiPost(body){
   return r.json();
 }
 
-async function sincronizar(){
-  if(!scriptUrl){ setSyncStatus('error','Sin URL configurada'); return; }
+// ── SYNC: leer todo desde Sheets ─────────────────────────────
+async function sincronizar(silent=false){
+  if(!scriptUrl){
+    setSyncStatus('error','Sin URL — ve a Configuración ⚙');
+    return;
+  }
   if(isSyncing) return;
   isSyncing=true;
-  setSyncStatus('syncing','Sincronizando...');
+  if(!silent) setSyncStatus('syncing','Actualizando...');
   try{
     const data=await apiGet('listar');
     if(data && data.registros){
-      // Merge: registros remotos tienen prioridad
-      const remoteIds=new Set(data.registros.map(r=>r.id));
-      // Registros locales que aún no están en remoto (pendientes de subir)
-      const pendientes=records.filter(r=>!remoteIds.has(r.id));
-      // Si hay pendientes, subirlos
-      if(pendientes.length>0){
-        await apiPost({action:'importar', registros: pendientes.map(r=>({
-          id:r.id, num:r.num, placa:r.placa, chofer:r.chofer, empresa:r.empresa,
-          motivo:r.motivo||'',
-          fechaIngreso:tsToDate(r.entrada), horaIngreso:tsToTime(r.entrada),
-          fechaSalida: hasSalida(r)?fmtSalida(r):'',
-          horaSalida:  hasSalida(r)?fmtHoraS(r):'',
-          entrada:r.entrada, salida:r.salida||null
-        }))});
-      }
-      // Actualizar local con datos remotos
-      const remoteMap={};
-      data.registros.forEach(r=>remoteMap[r.id]=r);
-      // Combinar
-      const allIds=new Set([...data.registros.map(r=>r.id),...pendientes.map(r=>r.id)]);
-      records=[];
-      allIds.forEach(id=>{
-        if(remoteMap[id]){
-          const rem=remoteMap[id];
-          records.push({
-            id:rem.id, num:rem.num, placa:rem.placa, chofer:rem.chofer,
-            empresa:rem.empresa||'', motivo:rem.motivo||'',
-            fechaIngreso:rem.fechaIngreso, horaIngreso:rem.horaIngreso,
-            fechaSalida:rem.fechaSalida||'', horaSalida:rem.horaSalida||'',
-            entrada:null, salida:rem.fechaSalida?1:null
-          });
-        } else {
-          const loc=pendientes.find(r=>r.id===id);
-          if(loc) records.push(loc);
-        }
-      });
-      saveLocal();
-      setSyncStatus('ok','Sincronizado — '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}));
+      records=data.registros.map(r=>({...r, entrada: entradaTs(r)}));
+      setSyncStatus('ok','En línea · '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}));
       renderPage(currentPage);
+    } else {
+      setSyncStatus('error','Sin respuesta de Sheets');
     }
   } catch(err){
-    setSyncStatus('error','Error de conexión');
+    setSyncStatus('error','Sin conexión');
     console.error(err);
   }
   isSyncing=false;
 }
 
-// ============================================================
-// PAGES
-// ============================================================
+// Auto-refresh cada 20 segundos
+function startAutoRefresh(){
+  if(autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer=setInterval(()=>sincronizar(true), 20000);
+}
+
+// ── PAGES ─────────────────────────────────────────────────────
 function showPage(p){
   currentPage=p;
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
@@ -591,55 +579,34 @@ function showPage(p){
     const oc=b.getAttribute('onclick')||'';
     b.classList.toggle('active', oc.includes("'"+p+"'"));
   });
-  renderPage(p);
   if(p==='config') loadConfigForm();
-}
-function renderPage(p){ if(p==='entrada') setTimeout(buildNumSelect,80);
-  if(p==='entrada'){ setTimeout(buildNumSelect,50); }
-  if(p==='dashboard')renderDashboard();
-  else if(p==='enplanta')renderEnPlanta();
-  else if(p==='historial')renderHistorial();
+  else{ sincronizar(); renderPage(p); }
 }
 
-// ---- DASHBOARD ----
+function renderPage(p){
+  if(p==='dashboard') renderDashboard();
+  else if(p==='enplanta') renderEnPlanta();
+  else if(p==='historial') renderHistorial();
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────
 function renderDashboard(){
   const q=(document.getElementById('dashSearch')?.value||'').toUpperCase().trim();
   const activos=records.filter(r=>!hasSalida(r));
-  const activosFilt=q?activos.filter(r=>r.placa.includes(q)||r.chofer.toUpperCase().includes(q)):activos;
+  const activosFilt=q?activos.filter(r=>r.placa.includes(q)||(r.chofer||'').toUpperCase().includes(q)):activos;
   const hoy=new Date(); hoy.setHours(0,0,0,0);
-  const hoyRecs=records.filter(r=>{
-    const ts=r.entrada||(r.fechaIngreso?parseLocalDate(r.fechaIngreso,r.horaIngreso):null);
-    return ts&&new Date(ts)>=hoy;
-  });
+  const hoyRecs=records.filter(r=>{ const ts=entradaTs(r); return ts&&new Date(ts)>=hoy; });
 
   document.getElementById('metricsContainer').innerHTML=`
     <div class="metric-card"><div class="metric-label">Total registros</div><div class="metric-val">${records.length}</div><div class="metric-note">histórico</div></div>
     <div class="metric-card green"><div class="metric-label">En planta ahora</div><div class="metric-val">${activos.length}</div><div class="metric-note">vehículos activos</div></div>
     <div class="metric-card amber"><div class="metric-label">Ingresos hoy</div><div class="metric-val">${hoyRecs.length}</div><div class="metric-note">${new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'short'})}</div></div>
-    <div class="metric-card"><div class="metric-label">Con salida registrada</div><div class="metric-val">${records.filter(r=>hasSalida(r)).length}</div><div class="metric-note">completados</div></div>`;
+    <div class="metric-card"><div class="metric-label">Con salida</div><div class="metric-val">${records.filter(r=>hasSalida(r)).length}</div><div class="metric-note">completados</div></div>`;
 
-  // Últimos movimientos (arriba)
-  const ultimos=records.slice().sort((a,b)=>(b.entrada||0)-(a.entrada||0)).slice(0,10);
-  document.getElementById('dashMovBadge').textContent=ultimos.length+' registros';
   document.getElementById('dashActiveBadge').textContent=activosFilt.length+' vehículo'+(activosFilt.length!==1?'s':'');
+  document.getElementById('dashMovBadge').textContent=Math.min(records.length,15)+' registros';
 
-  if(ultimos.length===0){
-    document.getElementById('dashMovimientos').innerHTML='<div style="text-align:center;padding:28px;color:var(--text3);font-size:13px">Sin movimientos</div>';
-  } else {
-    document.getElementById('dashMovimientos').innerHTML=`<div style="overflow-x:auto"><table style="min-width:500px"><thead><tr><th>N°</th><th>Patente</th><th>Chofer</th><th>Empresa</th><th>Ingreso</th><th>Hora</th><th>Estado</th></tr></thead><tbody>
-    ${ultimos.map(r=>`<tr>
-      <td><span class="num-badge">${String(r.num||'?').padStart(2,'0')}</span></td>
-      <td><span class="placa-badge">${r.placa}</span></td>
-      <td>${r.chofer}</td>
-      <td>${r.empresa||'—'}</td>
-      <td class="mono">${fmtEntrada(r)}</td>
-      <td class="mono">${fmtHoraE(r)}</td>
-      <td>${hasSalida(r)?'<span class="badge salio"><span class="badge-dot"></span>Salió</span>':'<span class="badge en-planta"><span class="badge-dot"></span>En planta</span>'}</td>
-    </tr>`).join('')}
-    </tbody></table></div>`;
-  }
-
-  // Vehículos en planta (abajo)
+  // EN PLANTA (arriba)
   if(activosFilt.length===0){
     document.getElementById('dashActivosTable').innerHTML='<div style="text-align:center;padding:28px;color:var(--text3);font-size:13px">'+(q?'Sin resultados para "'+q+'"':'Sin vehículos en planta')+'</div>';
   } else {
@@ -647,74 +614,78 @@ function renderDashboard(){
     ${activosFilt.map(r=>`<tr>
       <td><span class="num-badge">${String(r.num||'?').padStart(2,'0')}</span></td>
       <td><span class="placa-badge">${r.placa}</span></td>
-      <td>${r.chofer}</td>
-      <td>${r.empresa||'—'}</td>
+      <td>${r.chofer}</td><td>${r.empresa||'—'}</td>
       <td class="mono">${fmtEntrada(r)}</td>
       <td class="mono">${fmtHoraE(r)}</td>
       <td>${r.entrada?`<span class="badge en-planta"><span class="badge-dot"></span>${elapsed(r.entrada)}</span>`:'<span class="badge en-planta"><span class="badge-dot"></span>En planta</span>'}</td>
       <td><button class="btn btn-red btn-sm" onclick="openModalSalida('${r.id}')">Registrar Salida</button></td>
-    </tr>`).join('')}
-    </tbody></table></div>`;
+    </tr>`).join('')}</tbody></table></div>`;
+  }
+
+  // ÚLTIMOS MOVIMIENTOS (abajo)
+  const ultimos=records.slice().sort((a,b)=>(entradaTs(b)||0)-(entradaTs(a)||0)).slice(0,15);
+  if(ultimos.length===0){
+    document.getElementById('dashMovimientos').innerHTML='<div style="text-align:center;padding:28px;color:var(--text3);font-size:13px">Sin movimientos</div>';
+  } else {
+    document.getElementById('dashMovimientos').innerHTML=`<div style="overflow-x:auto"><table style="min-width:500px"><thead><tr><th>N°</th><th>Patente</th><th>Chofer</th><th>Empresa</th><th>Ingreso</th><th>Hora</th><th>Estado</th></tr></thead><tbody>
+    ${ultimos.map(r=>`<tr>
+      <td><span class="num-badge">${String(r.num||'?').padStart(2,'0')}</span></td>
+      <td><span class="placa-badge">${r.placa}</span></td>
+      <td>${r.chofer}</td><td>${r.empresa||'—'}</td>
+      <td class="mono">${fmtEntrada(r)}</td>
+      <td class="mono">${fmtHoraE(r)}</td>
+      <td>${hasSalida(r)?'<span class="badge salio"><span class="badge-dot"></span>Salió</span>':'<span class="badge en-planta"><span class="badge-dot"></span>En planta</span>'}</td>
+    </tr>`).join('')}</tbody></table></div>`;
   }
   document.getElementById('footerInfo').textContent=records.length+' registros · '+activos.length+' en planta';
 }
 
-// ---- EN PLANTA ----
+// ── EN PLANTA ─────────────────────────────────────────────────
 function renderEnPlanta(){
   const activos=records.filter(r=>!hasSalida(r));
   if(activos.length===0){
     document.getElementById('enPlantaTable').innerHTML='<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">No hay vehículos en planta actualmente</div>';
     return;
   }
-  document.getElementById('enPlantaTable').innerHTML=`<table><thead><tr><th>N° Asignado</th><th>Patente</th><th>Chofer</th><th>Empresa</th><th>Fecha Ingreso</th><th>Hora Ingreso</th><th>Tiempo</th><th>Acción</th></tr></thead><tbody>
+  document.getElementById('enPlantaTable').innerHTML=`<div style="overflow-x:auto"><table style="min-width:600px"><thead><tr><th>N° Asignado</th><th>Patente</th><th>Chofer</th><th>Empresa</th><th>Fecha Ingreso</th><th>Hora Ingreso</th><th>Tiempo</th><th>Acción</th></tr></thead><tbody>
   ${activos.map(r=>`<tr>
-    <td><span class="num-badge">${String(r.num||'?').padStart(4,'0')}</span></td>
+    <td><span class="num-badge">${String(r.num||'?').padStart(2,'0')}</span></td>
     <td><span class="placa-badge">${r.placa}</span></td>
-    <td>${r.chofer}</td>
-    <td>${r.empresa||'—'}</td>
+    <td>${r.chofer}</td><td>${r.empresa||'—'}</td>
     <td class="mono">${fmtEntrada(r)}</td>
     <td class="mono">${fmtHoraE(r)}</td>
     <td>${r.entrada?`<span class="badge en-planta"><span class="badge-dot"></span>${elapsed(r.entrada)}</span>`:'<span class="badge en-planta"><span class="badge-dot"></span>En planta</span>'}</td>
     <td><button class="btn btn-red btn-sm" onclick="openModalSalida('${r.id}')">Registrar Salida</button></td>
-  </tr>`).join('')}
-  </tbody></table>`;
+  </tr>`).join('')}</tbody></table></div>`;
 }
 
-// ---- HISTORIAL ----
+// ── HISTORIAL ─────────────────────────────────────────────────
 function renderHistorial(){
   const q=(document.getElementById('histSearch')?.value||'').toLowerCase().trim();
-  let recs=records.slice().sort((a,b)=>(b.entrada||0)-(a.entrada||0));
-  if(q) recs=recs.filter(r=>
-    r.placa.toLowerCase().includes(q)||
-    r.chofer.toLowerCase().includes(q)||
-    (r.empresa||'').toLowerCase().includes(q)
-  );
+  let recs=records.slice().sort((a,b)=>(entradaTs(b)||0)-(entradaTs(a)||0));
+  if(q) recs=recs.filter(r=>r.placa.toLowerCase().includes(q)||(r.chofer||'').toLowerCase().includes(q)||(r.empresa||'').toLowerCase().includes(q));
   if(recs.length===0){
     document.getElementById('historialTable').innerHTML='<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">Sin resultados</div>';
     return;
   }
-  document.getElementById('historialTable').innerHTML=`<table><thead><tr><th>N° Asignado</th><th>Patente</th><th>Chofer</th><th>Empresa</th><th>Fecha Ingreso</th><th>Hora Ingreso</th><th>Fecha Salida</th><th>Hora Salida</th><th>Estado</th></tr></thead><tbody>
+  document.getElementById('historialTable').innerHTML=`<div style="overflow-x:auto"><table style="min-width:700px"><thead><tr><th>N°</th><th>Patente</th><th>Chofer</th><th>Empresa</th><th>Fecha Ingreso</th><th>Hora Ingreso</th><th>Fecha Salida</th><th>Hora Salida</th><th>Estado</th></tr></thead><tbody>
   ${recs.map(r=>`<tr>
-    <td><span class="num-badge">${String(r.num||'?').padStart(4,'0')}</span></td>
+    <td><span class="num-badge">${String(r.num||'?').padStart(2,'0')}</span></td>
     <td><span class="placa-badge">${r.placa}</span></td>
-    <td>${r.chofer}</td>
-    <td>${r.empresa||'—'}</td>
+    <td>${r.chofer}</td><td>${r.empresa||'—'}</td>
     <td class="mono">${fmtEntrada(r)}</td>
     <td class="mono">${fmtHoraE(r)}</td>
     <td class="mono">${fmtSalida(r)}</td>
     <td class="mono">${fmtHoraS(r)}</td>
     <td>${hasSalida(r)?'<span class="badge salio"><span class="badge-dot"></span>Salió</span>':'<span class="badge en-planta"><span class="badge-dot"></span>En planta</span>'}</td>
-  </tr>`).join('')}
-  </tbody></table>`;
+  </tr>`).join('')}</tbody></table></div>`;
 }
 
-// ============================================================
-// ENTRADA
-// ============================================================
+// ── NÚMERO SELECT ─────────────────────────────────────────────
 function buildNumSelect(){
   const sel=document.getElementById('e-num');
   if(!sel)return;
-  const ocupados=new Set(records.filter(r=>!hasSalida(r)).map(r=>r.num));
+  const ocupados=new Set(records.filter(r=>!hasSalida(r)).map(r=>Number(r.num)));
   sel.innerHTML='<option value="">— Seleccionar N° —</option>';
   for(let i=1;i<=50;i++){
     const opt=document.createElement('option');
@@ -725,6 +696,7 @@ function buildNumSelect(){
   }
 }
 
+// ── REGISTRAR ENTRADA ─────────────────────────────────────────
 async function registrarEntrada(){
   const placa=(document.getElementById('e-placa').value||'').trim().toUpperCase();
   const chofer=(document.getElementById('e-chofer').value||'').trim();
@@ -735,64 +707,63 @@ async function registrarEntrada(){
   if(!placa||!chofer){ showAlert('Patente y chofer son obligatorios','error'); return; }
   if(!num){ showAlert('Selecciona un N° asignado del 1 al 50','error'); return; }
 
+  if(!scriptUrl){ showAlert('Sin conexión a Google Sheets. Ve a Configuración ⚙','error'); return; }
+
+  // Validar contra datos frescos de Sheets
   const dup=records.find(r=>!hasSalida(r)&&r.placa===placa);
   if(dup){ showAlert('⚠ '+placa+' ya está en planta (N°'+String(dup.num).padStart(2,'0')+')','warning'); return; }
-
-  const dupNum=records.find(r=>!hasSalida(r)&&r.num===num);
-  if(dupNum){ showAlert('⚠ N°'+String(num).padStart(2,'0')+' ya está ocupado por '+dupNum.placa,'error'); return; }
+  const dupNum=records.find(r=>!hasSalida(r)&&Number(r.num)===num);
+  if(dupNum){ showAlert('⚠ N°'+String(num).padStart(2,'0')+' ocupado por '+dupNum.placa,'error'); return; }
 
   const btn=document.getElementById('btnEntrada');
   btn.disabled=true;
   btn.innerHTML='<span class="spinner"></span> Registrando...';
 
-  const id=uid();
-  const ts=Date.now();
-  const record={id,num,placa,chofer,empresa,motivo,entrada:ts,salida:null,
-    fechaIngreso:tsToDate(ts),horaIngreso:tsToTime(ts),fechaSalida:'',horaSalida:''};
-  records.unshift(record);
-  saveLocal();
-
-  if(scriptUrl){
-    try{
-      const resp=await apiPost({action:'entrada',placa,chofer,empresa,motivo,entrada:ts,id,num});
-      if(resp&&resp.error){ showAlert('Guardado localmente. Error Sheets: '+resp.error,'warning'); }
-      else{ setSyncStatus('ok','Sincronizado — '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})); }
-    } catch(err){ showAlert('Guardado localmente. Sin conexión a Sheets.','warning'); }
-  } else {
-    showAlert('Registrado localmente. Configura Google Sheets para sincronizar.','warning');
+  try{
+    const id=uid();
+    const ts=Date.now();
+    const resp=await apiPost({action:'entrada',placa,chofer,empresa,motivo,entrada:ts,id,num});
+    if(resp&&resp.error){
+      showAlert('Error: '+resp.error,'error');
+    } else {
+      showAlert('✓ Ingreso registrado: N°'+String(num).padStart(2,'0')+' — '+placa+' — '+chofer,'success');
+      clearForm('entrada');
+      await sincronizar();
+      showPage('enplanta');
+    }
+  } catch(err){
+    showAlert('Sin conexión. Verifica tu internet.','error');
   }
 
-  showAlert('Ingreso registrado: N°'+String(num).padStart(2,'0')+' — '+placa+' — '+chofer,'success');
-  clearForm('entrada');
   btn.disabled=false;
   btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><polyline points="20 6 9 17 4 12"/></svg> Registrar Entrada';
-  showPage('enplanta');
 }
+
 function clearForm(type){
   if(type==='entrada'){
-    ['e-placa','e-chofer','e-empresa','e-motivo','e-num'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); buildNumSelect();
+    ['e-placa','e-chofer','e-empresa','e-motivo','e-num'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    buildNumSelect();
   }
 }
 
-// ============================================================
-// SALIDA
-// ============================================================
+// ── SALIDA ────────────────────────────────────────────────────
 function buscarParaSalida(){
   const placa=(document.getElementById('s-placa').value||'').trim().toUpperCase();
   if(!placa){ showAlert('Ingresa la patente','error'); return; }
   const r=records.find(x=>!hasSalida(x)&&x.placa===placa);
   const div=document.getElementById('salidaResult');
   if(!r){
-    div.innerHTML=`<div class="alert error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span>No se encontró ${placa} activo en planta</span></div>`;
+    div.innerHTML=`<div class="alert error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span>No se encontró ${placa} en planta</span></div>`;
     return;
   }
+  const ts=entradaTs(r);
   div.innerHTML=`<div class="modal-info">
-    <div class="modal-row"><span class="modal-row-label">N° Asignado</span><span class="num-badge">${String(r.num||'?').padStart(4,'0')}</span></div>
+    <div class="modal-row"><span class="modal-row-label">N° Asignado</span><span class="num-badge">${String(r.num||'?').padStart(2,'0')}</span></div>
     <div class="modal-row"><span class="modal-row-label">Patente</span><span class="placa-badge">${r.placa}</span></div>
     <div class="modal-row"><span class="modal-row-label">Chofer</span><span class="modal-row-val">${r.chofer}</span></div>
     <div class="modal-row"><span class="modal-row-label">Empresa</span><span class="modal-row-val">${r.empresa||'—'}</span></div>
     <div class="modal-row"><span class="modal-row-label">Ingresó</span><span class="modal-row-val mono">${fmtEntrada(r)} ${fmtHoraE(r)}</span></div>
-    ${r.entrada?`<div class="modal-row"><span class="modal-row-label">Tiempo en planta</span><span class="badge en-planta"><span class="badge-dot"></span>${elapsed(r.entrada)}</span></div>`:''}
+    ${ts?`<div class="modal-row"><span class="modal-row-label">Tiempo en planta</span><span class="badge en-planta"><span class="badge-dot"></span>${elapsed(ts)}</span></div>`:''}
   </div>
   <button class="btn btn-red" onclick="ejecutarSalida('${r.id}')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M9 21H3V3h6"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -803,152 +774,79 @@ function buscarParaSalida(){
 function openModalSalida(id){
   pendingSalidaId=id;
   const r=records.find(x=>x.id===id); if(!r)return;
+  const ts=entradaTs(r);
   document.getElementById('modalContent').innerHTML=`
     <div class="modal-info">
-      <div class="modal-row"><span class="modal-row-label">N° Asignado</span><span class="num-badge">${String(r.num||'?').padStart(4,'0')}</span></div>
+      <div class="modal-row"><span class="modal-row-label">N° Asignado</span><span class="num-badge">${String(r.num||'?').padStart(2,'0')}</span></div>
       <div class="modal-row"><span class="modal-row-label">Patente</span><span class="placa-badge">${r.placa}</span></div>
       <div class="modal-row"><span class="modal-row-label">Chofer</span><span class="modal-row-val">${r.chofer}</span></div>
       <div class="modal-row"><span class="modal-row-label">Empresa</span><span class="modal-row-val">${r.empresa||'—'}</span></div>
       <div class="modal-row"><span class="modal-row-label">Ingresó</span><span class="modal-row-val mono">${fmtEntrada(r)} ${fmtHoraE(r)}</span></div>
-      ${r.entrada?`<div class="modal-row"><span class="modal-row-label">Tiempo en planta</span><span class="badge en-planta"><span class="badge-dot"></span>${elapsed(r.entrada)}</span></div>`:''}
+      ${ts?`<div class="modal-row"><span class="modal-row-label">Tiempo en planta</span><span class="badge en-planta"><span class="badge-dot"></span>${elapsed(ts)}</span></div>`:''}
     </div>
-    <p style="font-size:13px;color:var(--text2)">¿Confirmas el registro de salida para este vehículo?</p>`;
+    <p style="font-size:13px;color:var(--text2)">¿Confirmas el registro de salida?</p>`;
   document.getElementById('modalSalida').classList.add('open');
 }
 function closeModal(){ document.getElementById('modalSalida').classList.remove('open'); pendingSalidaId=null; }
 function confirmarSalida(){ if(pendingSalidaId){ ejecutarSalida(pendingSalidaId); closeModal(); } }
 
 async function ejecutarSalida(id){
+  if(!scriptUrl){ showAlert('Sin conexión a Google Sheets','error'); return; }
   const r=records.find(x=>x.id===id);
   if(!r){ showAlert('Registro no encontrado','error'); return; }
-  const ts=Date.now();
-  r.salida=ts;
-  r.fechaSalida=tsToDate(ts);
-  r.horaSalida=tsToTime(ts);
-  saveLocal();
 
-  if(scriptUrl){
-    try{
-      const resp=await apiPost({action:'salida',id,salida:ts});
-      if(resp&&resp.error){ showAlert('Salida guardada localmente. Error Sheets: '+resp.error,'warning'); }
-      else { setSyncStatus('ok','Sincronizado — '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})); }
-    } catch(err){ showAlert('Salida guardada localmente. Sin conexión a Sheets.','warning'); }
+  try{
+    const resp=await apiPost({action:'salida',id,salida:Date.now()});
+    if(resp&&resp.error){ showAlert('Error: '+resp.error,'error'); return; }
+    showAlert('✓ Salida registrada: '+r.placa,'success');
+    document.getElementById('salidaResult').innerHTML='';
+    document.getElementById('s-placa').value='';
+    await sincronizar();
+    renderPage(currentPage);
+  } catch(err){
+    showAlert('Sin conexión. Verifica tu internet.','error');
   }
-
-  showAlert('Salida registrada: '+r.placa,'success');
-  document.getElementById('salidaResult').innerHTML='';
-  document.getElementById('s-placa').value='';
-  renderPage(currentPage);
 }
 
-// ============================================================
-// CONFIG
-// ============================================================
+// ── CONFIGURACIÓN ─────────────────────────────────────────────
 function loadConfigForm(){
   document.getElementById('cfg-url').value=scriptUrl||'';
   const st=document.getElementById('cfgStatus');
-  if(scriptUrl){
-    st.innerHTML='<span style="color:var(--green);font-weight:500">Conectado</span> — '+scriptUrl.slice(0,60)+'...';
-  } else {
-    st.innerHTML='<span style="color:var(--text3)">Sin configurar</span>';
-  }
+  if(scriptUrl) st.innerHTML='<span style="color:var(--green);font-weight:500">Conectado</span> — '+scriptUrl.slice(0,60)+'...';
+  else st.innerHTML='<span style="color:var(--text3)">Sin configurar</span>';
 }
 
 async function guardarConfig(){
   const url=(document.getElementById('cfg-url').value||'').trim();
   if(!url){ showAlert('Ingresa una URL válida','error'); return; }
-  scriptUrl=url;
-  saveConfig();
+  scriptUrl=url; saveConfig();
   const div=document.getElementById('cfgResult');
   div.innerHTML='<div class="alert info">Probando conexión...</div>';
   try{
     const data=await apiGet('ping');
     if(data&&data.ok){
-      div.innerHTML='<div class="alert success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><polyline points="20 6 9 17 4 12"/></svg> Conexión exitosa con Google Sheets</div>';
+      div.innerHTML='<div class="alert success">✓ Conexión exitosa con Google Sheets</div>';
       setSyncStatus('ok','Conectado a Google Sheets');
-      sincronizar();
+      await sincronizar();
     } else {
-      div.innerHTML='<div class="alert error">Respuesta inesperada del servidor. Verifica la URL.</div>';
+      div.innerHTML='<div class="alert error">Respuesta inesperada. Verifica la URL.</div>';
     }
   } catch(err){
-    div.innerHTML='<div class="alert error">No se pudo conectar. Verifica que el script esté publicado correctamente.</div>';
+    div.innerHTML='<div class="alert error">No se pudo conectar. Verifica que el script esté publicado.</div>';
     setSyncStatus('error','Error de conexión');
   }
   loadConfigForm();
 }
 
 function limpiarConfig(){
-  scriptUrl='';
-  saveConfig();
+  scriptUrl=''; saveConfig();
   document.getElementById('cfg-url').value='';
   document.getElementById('cfgResult').innerHTML='';
   setSyncStatus('error','Sin conexión');
   loadConfigForm();
 }
 
-// ============================================================
-// PARSE DATE
-// ============================================================
-function cleanDateStr(s){
-  if(!s)return '';
-  s=String(s).trim();
-  // Handle ISO format: 2026-04-28T04:00:00.000Z
-  if(s.includes('T')){
-    const d=new Date(s);
-    if(!isNaN(d)){return padZ(d.getDate())+'/'+padZ(d.getMonth()+1)+'/'+d.getFullYear();}
-  }
-  // Handle 1899-12-30... (Excel epoch ghost)
-  if(s.startsWith('1899'))return '';
-  return s;
-}
-function cleanTimeStr(s){
-  if(!s)return '';
-  s=String(s).trim();
-  if(s.includes('T')){
-    const d=new Date(s);
-    if(!isNaN(d)){return padZ(d.getHours())+':'+padZ(d.getMinutes());}
-  }
-  if(s.startsWith('1899'))return '';
-  return s;
-}
-function cleanDate(s){
-  if(!s)return '';
-  s=String(s).trim();
-  // ISO format from Sheets: 2026-04-28T04:00:00.000Z
-  if(/^\d{4}-\d{2}-\d{2}/.test(s)){
-    const d=new Date(s);
-    if(!isNaN(d)){
-      // Use local Chile offset (+0 stored, display as-is date part)
-      const parts=s.substring(0,10).split('-');
-      return parts[2]+'/'+parts[1]+'/'+parts[0];
-    }
-  }
-  if(s.startsWith('1899')||s.startsWith('1900'))return '';
-  return s;
-}
-function cleanTime(s){
-  if(!s)return '';
-  s=String(s).trim();
-  // ISO time from Sheets: 1899-12-30T20:09:45.000Z → extract HH:MM from Z time
-  if(/^\d{4}-\d{2}-\d{2}T/.test(s)){
-    const tPart=s.split('T')[1]||'';
-    const hm=tPart.substring(0,5);
-    if(hm.includes(':'))return hm;
-  }
-  if(s.startsWith('1899')||s.startsWith('1900'))return '';
-  return s;
-}
-function parseLocalDate(dateStr, timeStr){
-  if(!dateStr)return null;
-  const p=dateStr.split('/');
-  if(p.length<3)return null;
-  const tp=(timeStr||'00:00').split(':');
-  return new Date(+p[2],+p[1]-1,+p[0],+tp[0]||0,+tp[1]||0).getTime();
-}
-
-// ============================================================
-// CLOCK
-// ============================================================
+// ── RELOJ ─────────────────────────────────────────────────────
 function tick(){
   const n=new Date();
   document.getElementById('clockTime').textContent=padZ(n.getHours())+':'+padZ(n.getMinutes())+':'+padZ(n.getSeconds());
@@ -956,21 +854,20 @@ function tick(){
 }
 setInterval(tick,1000); tick();
 
-// Auto-sync cada 5 minutos
-setInterval(()=>{ if(scriptUrl) sincronizar(); }, 5*60*1000);
+// Sincronizar al volver a la pestaña
+document.addEventListener('visibilitychange',function(){
+  if(!document.hidden && scriptUrl) sincronizar(true);
+});
 
-// ============================================================
-// INIT
-// ============================================================
-loadLocal();
-buildNumSelect();
+// ── INIT ──────────────────────────────────────────────────────
+loadConfig();
 if(scriptUrl){
-  setSyncStatus('syncing','Conectando...');
-  sincronizar();
+  setSyncStatus('syncing','Conectando a Google Sheets...');
+  sincronizar().then(()=>{ buildNumSelect(); startAutoRefresh(); });
 } else {
   setSyncStatus('error','Sin Google Sheets — configura en ⚙');
+  renderDashboard();
 }
-renderDashboard();
 </script>
 </body>
 </html>
